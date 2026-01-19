@@ -1,0 +1,29 @@
+# Core dependencies for ChainOfThought Coder V2
+# Production-ready requirements
+
+# Database
+sqlite3>=3.35
+
+# JSON processing
+python-json-logger>=2.0.0
+
+# Optional: For enhanced performance
+# msgpack>=1.0.0  # Uncomment for MessagePack support
+# zstandard>=0.18.0  # Uncomment for compression
+
+# Optional: For cloud storage integration
+# boto3>=1.26.0  # Uncomment for AWS S3 backups
+# google-cloud-storage>=2.0.0  # Uncomment for Google Cloud Storage
+
+# Optional: For metrics and monitoring
+# prometheus-client>=0.16.0  # Uncomment for Prometheus metrics
+# structlog>=22.0.0  # Uncomment for structured logging
+
+# Optional: For encryption
+# cryptography>=39.0.0  # Uncomment for AES-256 encryption
+
+# Development dependencies (not required for production)
+# pytest>=7.0.0
+# pytest-asyncio>=0.21.0
+# black>=23.0.0
+# flake8>=6.0.0

@@ -1,0 +1,45 @@
+{
+  "name": "chainofthought-coder",
+  "version": "2.4.0",
+  "runtime": "python>=3.8",
+  "entry_point": "memory_store_v2/mcp_server_v2.py",
+  "description": "Enhanced memory system for step-by-step problem solving with hierarchical task management and dual-tier memory",
+  "author": "ChainOfThought Coder Team",
+  "license": "MIT",
+  "capabilities": {
+    "tools": [
+      "session_manager",
+      "task_manager",
+      "memory_ops",
+      "checkpoint_ops",
+      "system_stats"
+    ],
+    "resources": [
+      "memory_store",
+      "task_hierarchy",
+      "checkpoints"
+    ]
+  },
+  "dependencies": {
+    "python": ">=3.8",
+    "packages": [
+      "sqlite3>=3.35",
+      "python-json-logger>=2.0.0"
+    ]
+  },
+  "permissions": {
+    "file_system": ["read", "write"],
+    "network": false
+  },
+  "metadata": {
+    "category": "developer-tools",
+    "tags": ["memory", "task-management", "mcp", "thinking-tool"],
+    "featured": true,
+    "verified": false
+  },
+  "screenshots": [
+    "docs/demo.gif"
+  ],
+  "documentation": "README.md",
+  "changelog": "CHANGELOG.md"
+}
