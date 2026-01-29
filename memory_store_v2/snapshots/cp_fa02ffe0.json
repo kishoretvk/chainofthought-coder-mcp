@@ -1,0 +1,241 @@
+{
+  "type": "subtask",
+  "task_id": "task_13593bf4",
+  "session_id": "sess_f30caf59",
+  "timestamp": 1768884910.886425,
+  "task_details": {
+    "task_id": "task_13593bf4",
+    "session_id": "sess_f30caf59",
+    "name": "Module 2: Customer Management API Implementation",
+    "description": "Implement complete Customer Management microservice with FastAPI, including customer profiles, KYC, addresses, documents, and notes. Uses same JWT/OAuth authentication as Module 1.",
+    "status": "pending",
+    "progress": 0.0,
+    "priority": 1,
+    "tags": [],
+    "subtasks": [
+      {
+        "task_id": "subtask_bfaf3909",
+        "session_id": "sess_f30caf59",
+        "name": "Module 2: Database Models Implementation",
+        "description": "Create SQLAlchemy models for customers, addresses, KYC, documents, and notes tables",
+        "status": "pending",
+        "progress": 0.0,
+        "priority": 1,
+        "tags": [],
+        "subtasks": []
+      },
+      {
+        "task_id": "subtask_6355ac56",
+        "session_id": "sess_f30caf59",
+        "name": "Module 2: Pydantic Schemas Implementation",
+        "description": "Create Pydantic models for request/response validation including customer profiles, addresses, KYC data",
+        "status": "pending",
+        "progress": 0.0,
+        "priority": 1,
+        "tags": [],
+        "subtasks": []
+      },
+      {
+        "task_id": "subtask_b4b36411",
+        "session_id": "sess_f30caf59",
+        "name": "Module 2: Repository Layer Implementation",
+        "description": "Create repository classes for database operations on customers, addresses, KYC, documents, notes",
+        "status": "pending",
+        "progress": 0.0,
+        "priority": 1,
+        "tags": [],
+        "subtasks": []
+      },
+      {
+        "task_id": "subtask_5fa95e8e",
+        "session_id": "sess_f30caf59",
+        "name": "Module 2: Service Layer Implementation",
+        "description": "Create service classes for business logic including customer creation, KYC verification, address management",
+        "status": "pending",
+        "progress": 0.0,
+        "priority": 1,
+        "tags": [],
+        "subtasks": []
+      },
+      {
+        "task_id": "subtask_9d861b63",
+        "session_id": "sess_f30caf59",
+        "name": "Module 2: Router/API Endpoints Implementation",
+        "description": "Create FastAPI routers for customer endpoints including CRUD operations, KYC, addresses, documents",
+        "status": "pending",
+        "progress": 0.0,
+        "priority": 1,
+        "tags": [],
+        "subtasks": []
+      },
+      {
+        "task_id": "subtask_c35aeed8",
+        "session_id": "sess_f30caf59",
+        "name": "Module 2: Main Application Setup",
+        "description": "Create main.py, __init__.py files and configure FastAPI application for Module 2",
+        "status": "pending",
+        "progress": 0.0,
+        "priority": 1,
+        "tags": [],
+        "subtasks": []
+      },
+      {
+        "task_id": "subtask_b000682f",
+        "session_id": "sess_f30caf59",
+        "name": "Module 2: Configuration and Dependencies",
+        "description": "Create config.py, requirements.txt, .env.example for Module 2",
+        "status": "pending",
+        "progress": 0.0,
+        "priority": 1,
+        "tags": [],
+        "subtasks": []
+      },
+      {
+        "task_id": "subtask_02f8208a",
+        "session_id": "sess_f30caf59",
+        "name": "Module 2: Docker Configuration",
+        "description": "Create Dockerfile and update docker-compose.yml for Module 2",
+        "status": "pending",
+        "progress": 0.0,
+        "priority": 1,
+        "tags": [],
+        "subtasks": []
+      },
+      {
+        "task_id": "subtask_4871f2c0",
+        "session_id": "sess_f30caf59",
+        "name": "Module 2: Testing Implementation",
+        "description": "Create unit and integration tests for Module 2 endpoints and business logic",
+        "status": "pending",
+        "progress": 0.0,
+        "priority": 1,
+        "tags": [],
+        "subtasks": []
+      },
+      {
+        "task_id": "subtask_6cfe1404",
+        "session_id": "sess_f30caf59",
+        "name": "Module 2: Documentation",
+        "description": "Create README.md, API documentation, and usage examples for Module 2",
+        "status": "pending",
+        "progress": 0.0,
+        "priority": 1,
+        "tags": [],
+        "subtasks": []
+      }
+    ]
+  },
+  "subtasks": [
+    {
+      "task_id": "subtask_bfaf3909",
+      "session_id": "sess_f30caf59",
+      "name": "Module 2: Database Models Implementation",
+      "description": "Create SQLAlchemy models for customers, addresses, KYC, documents, and notes tables",
+      "status": "pending",
+      "progress": 0.0,
+      "priority": 1,
+      "tags": [],
+      "subtasks": []
+    },
+    {
+      "task_id": "subtask_6355ac56",
+      "session_id": "sess_f30caf59",
+      "name": "Module 2: Pydantic Schemas Implementation",
+      "description": "Create Pydantic models for request/response validation including customer profiles, addresses, KYC data",
+      "status": "pending",
+      "progress": 0.0,
+      "priority": 1,
+      "tags": [],
+      "subtasks": []
+    },
+    {
+      "task_id": "subtask_b4b36411",
+      "session_id": "sess_f30caf59",
+      "name": "Module 2: Repository Layer Implementation",
+      "description": "Create repository classes for database operations on customers, addresses, KYC, documents, notes",
+      "status": "pending",
+      "progress": 0.0,
+      "priority": 1,
+      "tags": [],
+      "subtasks": []
+    },
+    {
+      "task_id": "subtask_5fa95e8e",
+      "session_id": "sess_f30caf59",
+      "name": "Module 2: Service Layer Implementation",
+      "description": "Create service classes for business logic including customer creation, KYC verification, address management",
+      "status": "pending",
+      "progress": 0.0,
+      "priority": 1,
+      "tags": [],
+      "subtasks": []
+    },
+    {
+      "task_id": "subtask_9d861b63",
+      "session_id": "sess_f30caf59",
+      "name": "Module 2: Router/API Endpoints Implementation",
+      "description": "Create FastAPI routers for customer endpoints including CRUD operations, KYC, addresses, documents",
+      "status": "pending",
+      "progress": 0.0,
+      "priority": 1,
+      "tags": [],
+      "subtasks": []
+    },
+    {
+      "task_id": "subtask_c35aeed8",
+      "session_id": "sess_f30caf59",
+      "name": "Module 2: Main Application Setup",
+      "description": "Create main.py, __init__.py files and configure FastAPI application for Module 2",
+      "status": "pending",
+      "progress": 0.0,
+      "priority": 1,
+      "tags": [],
+      "subtasks": []
+    },
+    {
+      "task_id": "subtask_b000682f",
+      "session_id": "sess_f30caf59",
+      "name": "Module 2: Configuration and Dependencies",
+      "description": "Create config.py, requirements.txt, .env.example for Module 2",
+      "status": "pending",
+      "progress": 0.0,
+      "priority": 1,
+      "tags": [],
+      "subtasks": []
+    },
+    {
+      "task_id": "subtask_02f8208a",
+      "session_id": "sess_f30caf59",
+      "name": "Module 2: Docker Configuration",
+      "description": "Create Dockerfile and update docker-compose.yml for Module 2",
+      "status": "pending",
+      "progress": 0.0,
+      "priority": 1,
+      "tags": [],
+      "subtasks": []
+    },
+    {
+      "task_id": "subtask_4871f2c0",
+      "session_id": "sess_f30caf59",
+      "name": "Module 2: Testing Implementation",
+      "description": "Create unit and integration tests for Module 2 endpoints and business logic",
+      "status": "pending",
+      "progress": 0.0,
+      "priority": 1,
+      "tags": [],
+      "subtasks": []
+    },
+    {
+      "task_id": "subtask_6cfe1404",
+      "session_id": "sess_f30caf59",
+      "name": "Module 2: Documentation",
+      "description": "Create README.md, API documentation, and usage examples for Module 2",
+      "status": "pending",
+      "progress": 0.0,
+      "priority": 1,
+      "tags": [],
+      "subtasks": []
+    }
+  ],
+  "metadata": {}
+}

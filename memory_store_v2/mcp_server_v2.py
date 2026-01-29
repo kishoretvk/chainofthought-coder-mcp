@@ -1,6 +1,6 @@
 """
-MCP Server v2 - Using the new hybrid memory system.
-Provides consolidated tools for session, task, memory, and checkpoint management.
+MCP Server v2 - Using the new hybrid memory system with enhanced parallel execution.
+Provides consolidated tools for session, task, memory, checkpoint, and workflow management.
 """
 import asyncio
 import json
@@ -10,10 +10,13 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 from memory_store_v2 import MemorySystemV2
+from memory_store_v2.agents.orchestration_engine import OrchestrationEngine
 
 # Global instance
 memory = MemorySystemV2()
+orchestration = OrchestrationEngine(memory.tasks, max_parallel=4)
 app = Server("chainofthought-coder-v2")
+
 
 @app.list_tools()
 async def list_tools():
@@ -50,6 +53,84 @@ async def list_tools():
                     "status": {"type": "string"},
                     "priority": {"type": "integer"},
                     "depends_on": {"type": "string"}
+                },
+                "required": ["action"]
+            }
+        ),
+        Tool(
+            name="workflow_manager",
+            description="Manage task workflows with parallel execution and dependency tracking",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["create", "execute", "status", "cancel", "get_graph"]},
+                    "session_id": {"type": "string"},
+                    "workflow_id": {"type": "string"},
+                    "name": {"type": "string"},
+                    "description": {"type": "string"},
+                    "root_task_id": {"type": "string"},
+                    "max_parallel": {"type": "integer"},
+                    "auto_decompose": {"type": "boolean"},
+                    "auto_infer_deps": {"type": "boolean"}
+                },
+                "required": ["action"]
+            }
+        ),
+        Tool(
+            name="dependency_analyzer",
+            description="Analyze and visualize task dependencies, detect cycles, get execution order",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["analyze", "get_order", "get_graph", "detect_cycles", "critical_path"]},
+                    "session_id": {"type": "string"},
+                    "root_task_id": {"type": "string"},
+                    "task_id": {"type": "string"},
+                    "depends_on": {"type": "string"}
+                },
+                "required": ["action"]
+            }
+        ),
+        Tool(
+            name="parallel_executor",
+            description="Schedule and execute tasks in parallel with dependency awareness",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["schedule", "status", "pause", "resume", "cancel"]},
+                    "session_id": {"type": "string"},
+                    "root_task_id": {"type": "string"},
+                    "task_id": {"type": "string"},
+                    "max_parallel": {"type": "integer"}
+                },
+                "required": ["action"]
+            }
+        ),
+        Tool(
+            name="progress_tracker",
+            description="Track task progress with history and predictions",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["get", "history", "summary", "predict"]},
+                    "session_id": {"type": "string"},
+                    "root_task_id": {"type": "string"},
+                    "task_id": {"type": "string"},
+                    "limit": {"type": "integer"}
+                },
+                "required": ["action"]
+            }
+        ),
+        Tool(
+            name="task_decomposer",
+            description="Decompose complex tasks into subtasks with intelligent analysis",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["decompose", "analyze_complexity", "classify", "get_templates"]},
+                    "session_id": {"type": "string"},
+                    "task_id": {"type": "string"},
+                    "auto_dependencies": {"type": "boolean"}
                 },
                 "required": ["action"]
             }
@@ -103,10 +184,12 @@ async def list_tools():
         )
     ]
 
+
 @app.call_tool()
 async def call_tool(name: str, arguments: Dict[str, Any]):
     """Handle tool calls."""
     try:
+        # ==================== Session Management ====================
         if name == "session_manager":
             action = arguments["action"]
             
@@ -133,6 +216,7 @@ async def call_tool(name: str, arguments: Dict[str, Any]):
                 success = memory.sessions.archive(arguments["session_id"])
                 return [TextContent(type="text", text=json.dumps({"success": success}))]
         
+        # ==================== Task Management ====================
         elif name == "task_manager":
             action = arguments["action"]
             
@@ -178,6 +262,159 @@ async def call_tool(name: str, arguments: Dict[str, Any]):
                 )
                 return [TextContent(type="text", text=json.dumps({"success": success}))]
         
+        # ==================== Workflow Management ====================
+        elif name == "workflow_manager":
+            action = arguments["action"]
+            
+            if action == "create":
+                workflow_id = await orchestration.create_workflow(
+                    arguments["session_id"],
+                    arguments["name"],
+                    arguments.get("description", "")
+                )
+                return [TextContent(type="text", text=json.dumps({"workflow_id": workflow_id}))]
+            
+            elif action == "execute":
+                result = await orchestration.execute_workflow(arguments["workflow_id"])
+                return [TextContent(type="text", text=json.dumps(result))]
+            
+            elif action == "status":
+                status = orchestration.get_workflow_status(arguments["workflow_id"])
+                return [TextContent(type="text", text=json.dumps(status or {}))]
+            
+            elif action == "cancel":
+                await orchestration.cancel_workflow(arguments["workflow_id"])
+                return [TextContent(type="text", text=json.dumps({"success": True}))]
+            
+            elif action == "get_graph":
+                graph = orchestration.get_dependency_graph(
+                    arguments["session_id"],
+                    arguments.get("root_task_id")
+                )
+                return [TextContent(type="text", text=json.dumps(graph))]
+        
+        # ==================== Dependency Analysis ====================
+        elif name == "dependency_analyzer":
+            action = arguments["action"]
+            
+            if action == "analyze":
+                result = await orchestration.dependency_agent.analyze_dependencies(
+                    arguments["session_id"],
+                    arguments.get("root_task_id"),
+                    arguments.get("auto_infer", True)
+                )
+                return [TextContent(type="text", text=json.dumps(result))]
+            
+            elif action == "get_order":
+                order = orchestration.dependency_agent.get_execution_order()
+                return [TextContent(type="text", text=json.dumps({"execution_order": order}))]
+            
+            elif action == "get_graph":
+                graph = orchestration.dependency_agent.get_dependency_graph(
+                    arguments["session_id"],
+                    arguments.get("root_task_id")
+                )
+                return [TextContent(type="text", text=json.dumps(graph))]
+            
+            elif action == "detect_cycles":
+                cycles = orchestration.dependency_agent.detect_circular_dependencies(
+                    arguments["session_id"],
+                    arguments.get("root_task_id")
+                )
+                return [TextContent(type="text", text=json.dumps({"cycles": cycles}))]
+            
+            elif action == "critical_path":
+                critical = orchestration.dependency_agent.get_critical_path()
+                return [TextContent(type="text", text=json.dumps(critical))]
+        
+        # ==================== Parallel Execution ====================
+        elif name == "parallel_executor":
+            action = arguments["action"]
+            
+            if action == "schedule":
+                result = await orchestration.execution_agent.schedule_tasks(
+                    arguments["session_id"],
+                    arguments.get("root_task_id"),
+                    arguments.get("max_parallel", 4)
+                )
+                return [TextContent(type="text", text=json.dumps(result))]
+            
+            elif action == "status":
+                status = orchestration.execution_agent.get_execution_status()
+                return [TextContent(type="text", text=json.dumps(status))]
+            
+            elif action == "pause":
+                await orchestration.execution_agent.pause_execution()
+                return [TextContent(type="text", text=json.dumps({"success": True}))]
+            
+            elif action == "resume":
+                await orchestration.execution_agent.resume_execution()
+                return [TextContent(type="text", text=json.dumps({"success": True}))]
+            
+            elif action == "cancel":
+                await orchestration.execution_agent.cancel_task(arguments["task_id"])
+                return [TextContent(type="text", text=json.dumps({"success": True}))]
+        
+        # ==================== Progress Tracking ====================
+        elif name == "progress_tracker":
+            action = arguments["action"]
+            
+            if action == "get":
+                progress = memory.progress_tracker.get_current_progress(
+                    arguments["task_id"]
+                )
+                return [TextContent(type="text", text=json.dumps(progress or {}))]
+            
+            elif action == "history":
+                history = memory.progress_tracker.get_history(
+                    arguments["task_id"],
+                    arguments.get("limit", 100)
+                )
+                return [TextContent(type="text", text=json.dumps({"history": history}))]
+            
+            elif action == "summary":
+                summary = memory.progress_tracker.get_progress_summary(
+                    arguments["session_id"],
+                    arguments.get("root_task_id")
+                )
+                return [TextContent(type="text", text=json.dumps(summary))]
+            
+            elif action == "predict":
+                prediction = memory.progress_tracker.predict_completion(
+                    arguments["session_id"],
+                    arguments.get("root_task_id")
+                )
+                return [TextContent(type="text", text=json.dumps(prediction))]
+        
+        # ==================== Task Decomposition ====================
+        elif name == "task_decomposer":
+            action = arguments["action"]
+            
+            if action == "decompose":
+                subtask_ids = await orchestration.decomposition_agent.decompose_task(
+                    arguments["session_id"],
+                    arguments["task_id"],
+                    arguments.get("auto_dependencies", True)
+                )
+                return [TextContent(type="text", text=json.dumps({"subtasks": subtask_ids}))]
+            
+            elif action == "analyze_complexity":
+                task = memory.tasks.get(arguments["task_id"])
+                if task:
+                    complexity = orchestration.decomposition_agent.analyze_complexity(task)
+                    return [TextContent(type="text", text=json.dumps({"complexity": complexity}))]
+            
+            elif action == "classify":
+                task = memory.tasks.get(arguments["task_id"])
+                if task:
+                    task_type = orchestration.decomposition_agent.classify_task(task)
+                    return [TextContent(type="text", text=json.dumps({"task_type": task_type}))]
+            
+            elif action == "get_templates":
+                templates = orchestration.decomposition_agent.SUBTASK_TEMPLATES
+                return [TextContent(type="text", text=json.dumps({"templates": templates}))]
+        
+        # ==================== Memory Operations ====================
         elif name == "memory_ops":
             action = arguments["action"]
             session_id = arguments["session_id"]
@@ -223,6 +460,7 @@ async def call_tool(name: str, arguments: Dict[str, Any]):
                 memory.memory.push_action(session_id, arguments["action_data"])
                 return [TextContent(type="text", text=json.dumps({"success": True}))]
         
+        # ==================== Checkpoint Operations ====================
         elif name == "checkpoint_ops":
             action = arguments["action"]
             
@@ -280,6 +518,7 @@ async def call_tool(name: str, arguments: Dict[str, Any]):
                 )
                 return [TextContent(type="text", text=json.dumps({"deleted": deleted}))]
         
+        # ==================== System Stats ====================
         elif name == "system_stats":
             stats = memory.get_stats()
             return [TextContent(type="text", text=json.dumps(stats))]
@@ -289,14 +528,16 @@ async def call_tool(name: str, arguments: Dict[str, Any]):
     except Exception as e:
         return [TextContent(type="text", text=json.dumps({"error": str(e)}))]
 
+
 async def main():
     """Main entry point."""
-    print("Starting ChainOfThought Coder v2 (Hybrid Memory System)...")
+    print("Starting ChainOfThought Coder v2 (Enhanced with Parallel Execution)...")
     print(f"Storage: {memory.db.db_path}")
     print(f"Snapshots: {memory.file_store.base_dir}")
     
     async with stdio_server() as (read_stream, write_stream):
         await app.run(read_stream, write_stream, app.create_initialization_options())
+
 
 if __name__ == "__main__":
     asyncio.run(main())

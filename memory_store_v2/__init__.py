@@ -9,6 +9,7 @@ from .managers.session_manager import SessionManager
 from .managers.task_manager import TaskManager
 from .managers.memory_manager import MemoryManager
 from .managers.checkpoint_manager import CheckpointManager
+from .managers.progress_tracker import ProgressTracker
 
 
 class MemorySystemV2:
@@ -31,6 +32,7 @@ class MemorySystemV2:
         self.checkpoints = CheckpointManager(
             self.db, self.file_store, self.tasks, self.memory
         )
+        self.progress_tracker = ProgressTracker(self.tasks)
     
     def close(self):
         """Close all connections."""
