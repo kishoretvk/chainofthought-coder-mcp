@@ -1,6 +1,9 @@
 # Core dependencies for ChainOfThought Coder V2
 # Production-ready requirements
 
+# MCP SDK - Use specific version for compatibility
+mcp>=1.0.0,<2.0.0
+
 # Database
 sqlite3>=3.35
 

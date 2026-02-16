@@ -18,18 +18,8 @@ except ImportError:
 
 
 class DependencyMapperAgent(AgentBase):
-    """
-    Enhanced dependency mapper agent.
+    """Enhanced dependency mapper agent."""
     
-    Features:
-    - Smart dependency inference based on task types
-    - Cycle detection and automatic resolution
-    - Dependency graph visualization data
-    - Critical path analysis
-    - Resource conflict detection
-    """
-    
-    # Common dependency patterns between task types
     DEPENDENCY_PATTERNS = {
         ('testing', 'code_generation'): 'Tests should run after code is generated',
         ('testing', 'refactoring'): 'Tests should verify refactoring',
@@ -56,18 +46,15 @@ class DependencyMapperAgent(AgentBase):
             self.dependency_graph = {}
             self.resource_graph = {}
         
-        # Cycle resolution strategies
         self.cycle_resolvers = [
             self._resolve_cycle_by_priority,
             self._resolve_cycle_by_topological_insert,
             self._resolve_cycle_by_merge
         ]
         
-        # Dependency cache
         self._dependency_cache = {}
     
     async def handle_message(self, message: Dict[str, Any]):
-        """Handle incoming messages."""
         msg_type = message['content'].get('type')
         
         if msg_type == 'analyze_dependencies':
@@ -83,7 +70,6 @@ class DependencyMapperAgent(AgentBase):
             
         elif msg_type == 'remove_dependency':
             task_id = message['content']['task_id']
-            # FIX: Use bracket notation instead of dot notation
             depends_on = message['content']['depends_on']
             self.remove_dependency(task_id, depends_on)
             
@@ -95,47 +81,30 @@ class DependencyMapperAgent(AgentBase):
     
     async def analyze_dependencies(self, session_id: str, root_task_id: str = None,
                                     auto_infer: bool = True) -> Dict:
-        """
-        Build dependency graph and detect issues.
-        
-        Args:
-            session_id: Session ID
-            root_task_id: Optional root task ID
-            auto_infer: Whether to auto-infer implicit dependencies
-            
-        Returns:
-            Analysis result
-        """
         task_tree = self.task_manager.get_tree(session_id, root_task_id)
         if not task_tree:
             return {'status': 'error', 'message': 'Task tree not found'}
         
-        # Clear existing graph
         if HAS_NETWORKX:
             self.dependency_graph.clear()
         else:
             self.dependency_graph = {}
         
-        # Build graph from task tree
         self._build_graph_from_tree(task_tree)
         
-        # Auto-infer implicit dependencies
         if auto_infer:
             inferred = self._infer_implicit_dependencies(task_tree)
             for dep in inferred:
                 task_id, depends_on = dep
                 self.add_explicit_dependency(task_id, depends_on)
         
-        # Detect and resolve cycles
         cycles = self.detect_circular_dependencies(session_id, root_task_id)
         if cycles:
             resolved = self._resolve_cycles(cycles)
         
-        # Calculate execution order
         execution_order = self.get_execution_order()
         critical_path = self.get_critical_path()
         
-        # Store results
         result = {
             'status': 'success',
             'task_count': len(self.dependency_graph.nodes) if HAS_NETWORKX else len(self.dependency_graph),
@@ -145,7 +114,6 @@ class DependencyMapperAgent(AgentBase):
             'parallelizable_groups': self.get_parallelizable_groups()
         }
         
-        # Save to metadata
         if root_task_id:
             metadata = json.loads(self.task_manager.get(root_task_id).get('metadata', '{}') or '{}')
             metadata['dependency_analysis'] = result
@@ -157,23 +125,11 @@ class DependencyMapperAgent(AgentBase):
         return result
     
     def add_explicit_dependency(self, task_id: str, depends_on: str) -> bool:
-        """
-        Add explicit dependency between tasks.
-        
-        Args:
-            task_id: Task that depends
-            depends_on: Task that must complete first
-            
-        Returns:
-            True if successful
-        """
         if task_id == depends_on:
             return False
-        
         return self.task_manager.add_dependency(task_id, depends_on)
     
     def remove_dependency(self, task_id: str, depends_on: str):
-        """Remove dependency between tasks."""
         task = self.task_manager.get(task_id)
         if not task:
             return
@@ -196,9 +152,14 @@ class DependencyMapperAgent(AgentBase):
             if task_id not in self.dependency_graph:
                 self.dependency_graph[task_id] = {'incoming': set(), 'outgoing': set()}
         
-        # Add explicit dependencies - FIX: Handle NULL case
-        deps_str = task_tree.get('dependencies')
-        dependencies = json.loads(deps_str) if deps_str else []
+        # FIX: get_tree already returns dependencies as parsed list, not string
+        deps_val = task_tree.get('dependencies')
+        if deps_val is None:
+            dependencies = []
+        elif isinstance(deps_val, list):
+            dependencies = deps_val
+        else:
+            dependencies = json.loads(deps_val) if deps_val else []
         
         for dep in dependencies:
             if HAS_NETWORKX:
@@ -222,15 +183,6 @@ class DependencyMapperAgent(AgentBase):
             self._build_graph_from_tree(subtask)
     
     def _infer_implicit_dependencies(self, task_tree: Dict[str, Any]) -> List[Tuple[str, str]]:
-        """
-        Infer implicit dependencies based on task types and names.
-        
-        Args:
-            task_tree: Task tree
-            
-        Returns:
-            List of (task_id, depends_on) tuples
-        """
         from .task_decomposition_agent import TaskDecompositionAgent
         classifier = TaskDecompositionAgent(self.task_manager)
         
@@ -247,25 +199,24 @@ class DependencyMapperAgent(AgentBase):
                 sibling_type = classifier.classify_task(sibling)
                 pattern_key = (task_type, sibling_type)
                 
-                # Check if this task type typically depends on sibling
                 if pattern_key in self.DEPENDENCY_PATTERNS:
-                    # Only add if not already a dependency
-                    existing_deps = json.loads(task.get('dependencies', '[]') or '[]')
+                    existing_deps = task.get('dependencies', [])
+                    if isinstance(existing_deps, str):
+                        existing_deps = json.loads(existing_deps) if existing_deps else []
                     if sibling['task_id'] not in existing_deps:
                         inferred.append((task_id, sibling['task_id']))
                 
-                # Also check reverse
                 reverse_key = (sibling_type, task_type)
                 if reverse_key in self.DEPENDENCY_PATTERNS:
-                    existing_deps = json.loads(sibling.get('dependencies', '[]') or '[]')
-                    if task_id not in existing_deps:
+                    sibling_deps = sibling.get('dependencies', [])
+                    if isinstance(sibling_deps, str):
+                        sibling_deps = json.loads(sibling_deps) if sibling_deps else []
+                    if task_id not in sibling_deps:
                         inferred.append((sibling['task_id'], task_id))
             
-            # Process subtasks
             for subtask in task.get('subtasks', []):
                 process_task(subtask, task.get('subtasks', []))
         
-        # Process main tasks
         if 'main_tasks' in task_tree:
             for main_task in task_tree['main_tasks']:
                 process_task(main_task, task_tree['main_tasks'])
@@ -274,16 +225,6 @@ class DependencyMapperAgent(AgentBase):
     
     def detect_circular_dependencies(self, session_id: str, 
                                       root_task_id: str = None) -> List[List[str]]:
-        """
-        Detect circular dependencies in the graph.
-        
-        Args:
-            session_id: Session ID
-            root_task_id ID: Optional root task
-            
-        Returns:
-            List of cycles (each cycle is a list of task IDs)
-        """
         if not HAS_NETWORKX:
             return self._detect_cycles_fallback()
         
@@ -302,7 +243,6 @@ class DependencyMapperAgent(AgentBase):
             return []
     
     def _find_all_cycles(self) -> List[List[str]]:
-        """Find all cycles using DFS fallback."""
         if not HAS_NETWORKX:
             return self._detect_cycles_fallback()
         
@@ -326,7 +266,6 @@ class DependencyMapperAgent(AgentBase):
                 try:
                     next_neighbor = next(neighbors)
                     if next_neighbor in path:
-                        # Found cycle
                         cycle_start = path.index(next_neighbor)
                         cycles.append(path[cycle_start:] + [next_neighbor])
                     elif next_neighbor not in visited:
@@ -339,7 +278,6 @@ class DependencyMapperAgent(AgentBase):
         return cycles
     
     def _detect_cycles_fallback(self) -> List[List[str]]:
-        """Fallback cycle detection without networkx."""
         if not self.dependency_graph:
             return []
         
@@ -372,15 +310,6 @@ class DependencyMapperAgent(AgentBase):
         return cycles
     
     def _resolve_cycles(self, cycles: List[List[str]]) -> Dict:
-        """
-        Attempt to resolve circular dependencies.
-        
-        Args:
-            cycles: List of detected cycles
-            
-        Returns:
-            Resolution report
-        """
         resolution_report = {
             'cycles_found': len(cycles),
             'resolutions': [],
@@ -414,14 +343,11 @@ class DependencyMapperAgent(AgentBase):
         return resolution_report
     
     def _resolve_cycle_by_priority(self, cycle: List[str]) -> bool:
-        """Resolve cycle by removing lowest priority dependency."""
         if len(cycle) < 2:
             return False
         
-        # Find task with lowest priority in cycle
         lowest_priority_task = min(cycle, key=lambda t: self.task_manager.get(t).get('priority', 0))
         
-        # Remove its dependency on the next task in cycle
         idx = cycle.index(lowest_priority_task)
         next_task = cycle[(idx + 1) % len(cycle)]
         
@@ -429,34 +355,28 @@ class DependencyMapperAgent(AgentBase):
         return True
     
     def _resolve_cycle_by_topological_insert(self, cycle: List[str]) -> bool:
-        """Resolve cycle by creating intermediate task."""
         if len(cycle) < 2:
             return False
         
-        # Break cycle by removing first dependency
         self.remove_dependency(cycle[0], cycle[1])
         return True
     
     def _resolve_cycle_by_merge(self, cycle: List[str]) -> bool:
-        """Resolve cycle by merging tasks (not implemented)."""
         return False
     
     def get_execution_order(self) -> List[str]:
-        """Get topological execution order."""
         if not HAS_NETWORKX:
             return self._topological_sort_fallback()
         
         try:
             return list(nx.topological_sort(self.dependency_graph))
         except nx.NetworkXUnfeasible:
-            # Fallback to BFS order
             if self.dependency_graph.nodes():
                 source = next(iter(self.dependency_graph.nodes()))
                 return list(nx.bfs_tree(self.dependency_graph, source).nodes())
             return []
     
     def _topological_sort_fallback(self) -> List[str]:
-        """Fallback topological sort."""
         if not self.dependency_graph:
             return []
         
@@ -479,17 +399,10 @@ class DependencyMapperAgent(AgentBase):
         return result
     
     def get_critical_path(self) -> Dict:
-        """
-        Calculate critical path (longest path through dependency graph).
-        
-        Returns:
-            Critical path information
-        """
         if not HAS_NETWORKX or not self.dependency_graph.nodes():
             return {'tasks': [], 'length': 0}
         
         try:
-            # Calculate longest path using DFS with memoization
             def longest_path(node, memo):
                 if node in memo:
                     return memo[node]
@@ -506,7 +419,6 @@ class DependencyMapperAgent(AgentBase):
                 memo[node] = (max_length, max_path)
                 return memo[node]
             
-            # Find the longest path starting from any node with no predecessors
             memo = {}
             all_paths = []
             for node in self.dependency_graph.nodes():
@@ -519,7 +431,7 @@ class DependencyMapperAgent(AgentBase):
                 return {
                     'tasks': critical['path'],
                     'length': critical['length'],
-                    'estimated_duration': critical['length'] * 5  # Assume 5 min per task
+                    'estimated_duration': critical['length'] * 5
                 }
             
             return {'tasks': [], 'length': 0}
@@ -528,19 +440,12 @@ class DependencyMapperAgent(AgentBase):
             return {'tasks': [], 'length': 0, 'error': str(e)}
     
     def get_parallelizable_groups(self) -> List[List[str]]:
-        """
-        Identify groups of tasks that can run in parallel.
-        
-        Returns:
-            List of task groups that can run in parallel
-        """
         if not HAS_NETWORKX:
             return self._find_parallel_groups_fallback()
         
         if not self.dependency_graph.nodes():
             return []
         
-        # Find tasks with no dependencies (can start immediately)
         roots = [n for n in self.dependency_graph.nodes() 
                 if self.dependency_graph.in_degree(n) == 0]
         
@@ -551,11 +456,9 @@ class DependencyMapperAgent(AgentBase):
             group = [task]
             processed.add(task)
             
-            # Get all tasks at same "level" (same distance from root)
             for successor in self.dependency_graph.successors(task):
                 if self.dependency_graph.in_degree(successor) == len(list(
                         self.dependency_graph.predecessors(successor))):
-                    # All dependencies of successor are in current group
                     if successor not in processed:
                         group.extend(get_group(successor))
             
@@ -568,11 +471,9 @@ class DependencyMapperAgent(AgentBase):
         return groups
     
     def _find_parallel_groups_fallback(self) -> List[List[str]]:
-        """Fallback parallel group detection."""
         if not self.dependency_graph:
             return []
         
-        # Find roots (no incoming edges)
         roots = [n for n in self.dependency_graph 
                 if not self.dependency_graph.get(n, {}).get('incoming')]
         
@@ -583,16 +484,6 @@ class DependencyMapperAgent(AgentBase):
         return groups
     
     def get_dependency_graph(self, session_id: str, root_task_id: str = None) -> Dict:
-        """
-        Get dependency graph for visualization.
-        
-        Args:
-            session_id: Session ID
-            root_task_id: Optional root task ID
-            
-        Returns:
-            Graph data suitable for visualization
-        """
         task_tree = self.task_manager.get_tree(session_id, root_task_id)
         if not task_tree:
             return {'nodes': [], 'edges': []}
@@ -641,15 +532,4 @@ class DependencyMapperAgent(AgentBase):
     
     def analyze_resource_conflicts(self, session_id: str, 
                                     resource_type: str = 'file') -> List[Dict]:
-        """
-        Analyze potential resource conflicts.
-        
-        Args:
-            session_id: Session ID
-            resource_type: Type of resource to check
-            
-        Returns:
-            List of potential conflicts
-        """
-        # This is a placeholder - would need actual resource tracking
         return []

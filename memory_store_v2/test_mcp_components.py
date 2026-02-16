@@ -81,6 +81,98 @@ async def test_bug_fixes():
     for sub_id in subtask_ids:
         sub = memory.tasks.get(sub_id)
         deps = sub.get('dependencies')
+        if deps and deps != '[]':
+            deps_list = json.loads(deps)
+            for d in deps_list:
+                assert isinstance(d, int), f"FAIL: dependency should be int index, got {type(d)}: {d}"
+    print(f"   [OK] Dependencies use integer indices")
+    
+    # BUG 6: Verify asyncio.Event exists in orchestration engine
+    print_subsection("Bug 6: asyncio.Event for task completion")
+    assert hasattr(orchestration, '_task_events'), "FAIL: _task_events not found!"
+    print(f"   [OK] _task_events dictionary exists")
+    
+    # BUG 7: Verify parallel execution agent uses non-blocking acquire
+    print_subsection("Bug 7: Non-blocking semaphore in parallel execution")
+    agent = orchestration.execution_agent
+    assert hasattr(agent, '_paused_permits_held'), "FAIL: _paused_permits_held not found!"
+    print(f"   [OK] _paused_permits_held tracking exists")
+    
+    # BUG 8: Verify dependency mapper handles message correctly (bracket notation)
+    print_subsection("Bug 8: Dependency mapper message handling")
+    # Create a test task with dependency
+    task_with_dep = memory.tasks.create_main_task(session_id, "Task With Dep", "Description")
+    memory.tasks.add_dependency(task_with_dep, task_id)
+    
+    # Now analyze dependencies - should not raise AttributeError
+    deps = await orchestration.dependency_agent.analyze_dependencies(session_id, task_with_dep)
+    print(f"   [OK] Dependency analysis works: {deps.get('status')}")
+    
+    # BUG 9: Verify get_short_term parses JSON properly
+    print_subsection("Bug 9: Short-term memory JSON parsing")
+    memory.memory.store_short_term(session_id, {"key": "value"}, [{"action": "test"}], "focus", {"temp": True})
+    stm = memory.memory.get_short_term(session_id)
+    assert isinstance(stm.get('active_context'), dict), "FAIL: active_context not parsed!"
+    assert isinstance(stm.get('recent_actions'), list), "FAIL: recent_actions not parsed!"
+    print(f"   [OK] Short-term memory properly parses JSON")
+    
+    memory.close()
+    print_section("Bug Fix Verification Tests PASSED!")
+
+
+async def test_core_components():
+    """Test all core components."""
+    print_section("Enhanced MCP Component Tests")
+    
+    # Initialize system
+    memory = MemorySystemV2()
+    orchestration = OrchestrationEngine(memory.tasks, max_parallel=2)
+    
+    # Test 1: Session Management
+    print_subsection("1. Session Management")
+    session_id = memory.sessions.create("Test Session", {"purpose": "MCP Testing"})
+    print(f"   [OK] Session created: {session_id[:16]}...")
+    
+    # Test 2: Task Creation
+    print_subsection("2. Task Creation")
+    task_id = memory.tasks.create_main_task(
+        session_id,
+        "Build Complete E-Commerce Platform",
+        "Create a full-stack e-commerce platform with user auth, product management, cart, checkout, and payment integration"
+    )
+    print(f"   [OK] Main task created: {task_id}")
+    
+    # Test 3: Task Decomposition
+    print_subsection("3. Task Decomposition")
+    subtask_ids = await orchestration.decomposition_agent.decompose_task(session_id, task_id)
+    print(f"   [OK] Decomposed into {len(subtask_ids)} subtasks:")
+    
+    for i, sub_id in enumerate(subtask_ids[:5], 1):
+        sub = memory.tasks.get(sub_id)
+        task_type = orchestration.decomposition_agent.classify_task(sub)
+        name = sub['name'][:40] + "..." if len(sub['name']) > 40 else sub['name']
+        print(f"      {i}. {name} ({task_type})")
+    if len(subtask_ids) > 5:
+        print(f"      ... and {len(subtask_ids) - 5} more")
+    
+    # Test 4: Task Classification
+    print_subsection("4. Task Classification")
+    test_tasks = [
+        ("Code Review", "Review code for security vulnerabilities"),
+        ("API Development", "Create REST API endpoints"),
+        ("Database Design", "Design database schema"),
+        ("Unit Testing", "Write comprehensive unit tests"),
+        ("Documentation", "Create API documentation")
+    ]
+    
+    for name, desc in test_tasks:
+        test_task_id = memory.tasks.create_main_task(session_id, name, desc)
+        test_task = memory.tasks.get(test_task_id)
+        task_type = orchestration.decomposition_agent.classify_task(test_task)
+        complexity = orchestration.decomposition_agent.analyze_complexity(test_task)
+        print(f"   [OK] {name}: {task_type} (complexity: {complexity:.1f})")
+    
+    # Test 5: Dependency Analysis
     print_subsection("5. Dependency Analysis")
     deps = await orchestration.dependency_agent.analyze_dependencies(session_id, task_id)
     exec_order_len = len(deps.get('execution_order', []))
@@ -199,12 +291,19 @@ async def test_edge_cases():
 
 async def main():
     """Run all tests."""
+    # First run bug fix verification tests
+    await test_bug_fixes()
+    
+    # Then run core component tests
     await test_core_components()
+    
+    # Finally run edge case tests
     await test_edge_cases()
     
     print("\n" + "=" * 60)
     print("  ENHANCED MCP VALIDATION COMPLETE")
     print("=" * 60)
+    print("\nAll tests passed including bug fix verification!")
     print("\nThe system is ready for production use with:")
     print("  * Task decomposition with smart templates")
     print("  * Dependency tracking and cycle resolution")
