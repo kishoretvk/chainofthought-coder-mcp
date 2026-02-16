@@ -61,6 +61,9 @@ class ParallelExecutionAgent(AgentBase):
         self._state_lock = asyncio.Lock()
         self._execution_state = ExecutionState.IDLE
         
+        # FIX: Track paused state properly
+        self._paused_permits_held = 0
+        
         # Deadlock detection
         self._deadlock_check_interval = 30
         self._last_deadlock_check = 0
@@ -192,6 +195,7 @@ class ParallelExecutionAgent(AgentBase):
             self._execution_state = ExecutionState.RUNNING
         
         self._semaphore = asyncio.Semaphore(self.max_parallel)
+        self._paused_permits_held = 0
         
         start_time = time.time()
         tasks_to_process = []
@@ -348,24 +352,39 @@ class ParallelExecutionAgent(AgentBase):
                 print(f"Progress callback error: {e}")
     
     async def pause_execution(self):
-        """Pause current execution."""
+        """Pause current execution using non-blocking acquire."""
         async with self._state_lock:
+            if self._execution_state != ExecutionState.RUNNING:
+                return
+            
             self._execution_state = ExecutionState.PAUSED
+            self._paused_permits_held = 0
         
-        # Clear semaphore to block new tasks
+        # FIX: Use non-blocking acquire to track how many permits we can grab
         if self._semaphore:
-            for _ in range(self.max_parallel):
-                self._semaphore.acquire()
+            while True:
+                try:
+                    self._semaphore.acquire_nowait()
+                    self._paused_permits_held += 1
+                except asyncio.InvalidStateError:
+                    # Semaphore is already in a valid state
+                    break
+                except Exception:
+                    break
     
     async def resume_execution(self):
         """Resume paused execution."""
         async with self._state_lock:
             self._execution_state = ExecutionState.RUNNING
         
-        # Release semaphore to allow new tasks
-        if self._semaphore:
-            for _ in range(self.max_parallel):
-                self._semaphore.release()
+        # FIX: Release only the permits we actually hold
+        if self._semaphore and self._paused_permits_held > 0:
+            for _ in range(self._paused_permits_held):
+                try:
+                    self._semaphore.release()
+                except Exception:
+                    pass
+            self._paused_permits_held = 0
     
     async def cancel_task(self, task_id: str):
         """Cancel a specific task."""
@@ -477,9 +496,14 @@ class ParallelExecutionAgent(AgentBase):
         
         while self.task_queue:
             priority, task_id = self.task_queue[0]
-            deps = json.loads(
-                self.task_manager.get(task_id).get('dependencies', '[]') or '[]'
-            )
+            # FIX: Handle NULL dependencies
+            task = self.task_manager.get(task_id)
+            if not task:
+                heappop(self.task_queue)
+                continue
+                
+            deps_str = task.get('dependencies')
+            deps = json.loads(deps_str) if deps_str else []
             
             # Check if all dependencies are completed
             all_done = all(

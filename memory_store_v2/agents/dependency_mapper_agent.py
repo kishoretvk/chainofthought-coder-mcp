@@ -83,7 +83,8 @@ class DependencyMapperAgent(AgentBase):
             
         elif msg_type == 'remove_dependency':
             task_id = message['content']['task_id']
-            depends_on = message['content'].depends_on
+            # FIX: Use bracket notation instead of dot notation
+            depends_on = message['content']['depends_on']
             self.remove_dependency(task_id, depends_on)
             
         elif msg_type == 'check_circular':
@@ -195,8 +196,10 @@ class DependencyMapperAgent(AgentBase):
             if task_id not in self.dependency_graph:
                 self.dependency_graph[task_id] = {'incoming': set(), 'outgoing': set()}
         
-        # Add explicit dependencies
-        dependencies = json.loads(task_tree.get('dependencies', '[]') or '[]')
+        # Add explicit dependencies - FIX: Handle NULL case
+        deps_str = task_tree.get('dependencies')
+        dependencies = json.loads(deps_str) if deps_str else []
+        
         for dep in dependencies:
             if HAS_NETWORKX:
                 self.dependency_graph.add_edge(dep, task_id)

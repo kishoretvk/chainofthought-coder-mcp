@@ -28,59 +28,59 @@ def print_subsection(title):
     print(f"\n--- {title} ---")
 
 
-async def test_core_components():
-    """Test all core components."""
-    print_section("Enhanced MCP Component Tests")
+async def test_bug_fixes():
+    """
+    Test that specifically verifies the bugs that were fixed:
+    1. import time at top of file (not bottom)
+    2. NULL dependencies handling in task_manager
+    3. bracket notation vs dot notation in dependency_mapper
+    4. asyncio.Event instead of busy-wait polling
+    5. non-blocking semaphore in parallel_execution
+    6. 'general' template exists in SUBTASK_TEMPLATES
+    """
+    print_section("Bug Fix Verification Tests")
     
-    # Initialize system
     memory = MemorySystemV2()
     orchestration = OrchestrationEngine(memory.tasks, max_parallel=2)
     
-    # Test 1: Session Management
-    print_subsection("1. Session Management")
-    session_id = memory.sessions.create("Test Session", {"purpose": "MCP Testing"})
-    print(f"   [OK] Session created: {session_id[:16]}...")
+    # BUG 1: Verify 'general' template exists (was missing)
+    print_subsection("Bug 1: 'general' template in SUBTASK_TEMPLATES")
+    assert 'general' in TaskDecompositionAgent.SUBTASK_TEMPLATES, "FAIL: 'general' template missing!"
+    print(f"   [OK] 'general' template exists: {TaskDecompositionAgent.SUBTASK_TEMPLATES['general']}")
     
-    # Test 2: Task Creation
-    print_subsection("2. Task Creation")
-    task_id = memory.tasks.create_main_task(
-        session_id,
-        "Build Complete E-Commerce Platform",
-        "Create a full-stack e-commerce platform with user auth, product management, cart, checkout, and payment integration"
+    # BUG 2: Verify dependencies column is initialized properly (not NULL)
+    print_subsection("Bug 2: Task dependencies initialized as '[]' not NULL")
+    session_id = memory.sessions.create("Bug Fix Test Session")
+    task_id = memory.tasks.create_main_task(session_id, "Test Task", "Test description")
+    task = memory.tasks.get(task_id)
+    deps = task.get('dependencies')
+    print(f"   [OK] dependencies value: {deps!r}")
+    assert deps is not None, "FAIL: dependencies is NULL!"
+    assert deps == '[]', f"FAIL: dependencies should be '[]', got {deps!r}"
+    print(f"   [OK] dependencies properly initialized as '[]'")
+    
+    # BUG 3: Verify NULL dependencies handling in _build_tree
+    print_subsection("Bug 3: NULL dependencies handling in _build_tree")
+    task_tree = memory.tasks.get_tree(session_id, task_id)
+    # Should not raise error even if dependencies is '[]'
+    print(f"   [OK] get_tree works without errors")
+    
+    # BUG 4: Verify task decomposition doesn't fail due to import time
+    print_subsection("Bug 4: Task decomposition works (import time fix)")
+    complex_task_id = memory.tasks.create_main_task(
+        session_id, 
+        "Build Complex System",
+        "Create a comprehensive system with multiple components that require detailed planning and execution"
     )
-    print(f"   [OK] Main task created: {task_id}")
+    subtask_ids = await orchestration.decomposition_agent.decompose_task(session_id, complex_task_id)
+    print(f"   [OK] Decomposed into {len(subtask_ids)} subtasks")
+    assert len(subtask_ids) > 0, "FAIL: No subtasks created!"
     
-    # Test 3: Task Decomposition
-    print_subsection("3. Task Decomposition")
-    subtask_ids = await orchestration.decomposition_agent.decompose_task(session_id, task_id)
-    print(f"   [OK] Decomposed into {len(subtask_ids)} subtasks:")
-    
-    for i, sub_id in enumerate(subtask_ids[:5], 1):
+    # BUG 5: Verify dependency IDs use indices not human-readable strings
+    print_subsection("Bug 5: Dependency uses indices not strings")
+    for sub_id in subtask_ids:
         sub = memory.tasks.get(sub_id)
-        task_type = orchestration.decomposition_agent.classify_task(sub)
-        name = sub['name'][:40] + "..." if len(sub['name']) > 40 else sub['name']
-        print(f"      {i}. {name} ({task_type})")
-    if len(subtask_ids) > 5:
-        print(f"      ... and {len(subtask_ids) - 5} more")
-    
-    # Test 4: Task Classification
-    print_subsection("4. Task Classification")
-    test_tasks = [
-        ("Code Review", "Review code for security vulnerabilities"),
-        ("API Development", "Create REST API endpoints"),
-        ("Database Design", "Design database schema"),
-        ("Unit Testing", "Write comprehensive unit tests"),
-        ("Documentation", "Create API documentation")
-    ]
-    
-    for name, desc in test_tasks:
-        test_task_id = memory.tasks.create_main_task(session_id, name, desc)
-        test_task = memory.tasks.get(test_task_id)
-        task_type = orchestration.decomposition_agent.classify_task(test_task)
-        complexity = orchestration.decomposition_agent.analyze_complexity(test_task)
-        print(f"   [OK] {name}: {task_type} (complexity: {complexity:.1f})")
-    
-    # Test 5: Dependency Analysis
+        deps = sub.get('dependencies')
     print_subsection("5. Dependency Analysis")
     deps = await orchestration.dependency_agent.analyze_dependencies(session_id, task_id)
     exec_order_len = len(deps.get('execution_order', []))

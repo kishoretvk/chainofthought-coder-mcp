@@ -33,13 +33,14 @@ class TaskManager:
         task_id = f"task_{uuid.uuid4().hex[:8]}"
         now = time.time()
         
+        # FIX: Added dependencies column with default '[]' instead of NULL
         self.db.execute("""
             INSERT INTO tasks 
             (task_id, session_id, parent_id, name, description, status, progress,
-             priority, tags, metadata, created_at, updated_at)
-            VALUES (?, ?, NULL, ?, ?, 'pending', 0.0, ?, ?, ?, ?, ?)
+             priority, dependencies, tags, metadata, created_at, updated_at)
+            VALUES (?, ?, NULL, ?, ?, 'pending', 0.0, ?, ?, ?, ?, ?, ?)
         """, (task_id, session_id, name, description, priority,
-              json.dumps(tags or []), json.dumps({}), now, now))
+              json.dumps([]), json.dumps(tags or []), json.dumps({}), now, now))
         
         return task_id
     
@@ -61,13 +62,14 @@ class TaskManager:
         task_id = f"subtask_{uuid.uuid4().hex[:8]}"
         now = time.time()
         
+        # FIX: Added dependencies column with default '[]' instead of NULL
         self.db.execute("""
             INSERT INTO tasks 
             (task_id, session_id, parent_id, name, description, status, progress,
-             priority, tags, metadata, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, 'pending', 0.0, ?, ?, ?, ?, ?)
+             priority, dependencies, tags, metadata, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, 'pending', 0.0, ?, ?, ?, ?, ?, ?)
         """, (task_id, session_id, parent_id, name, description, priority,
-              json.dumps([]), json.dumps({}), now, now))
+              json.dumps([]), json.dumps([]), json.dumps({}), now, now))
         
         return task_id
     
@@ -195,6 +197,11 @@ class TaskManager:
         task_id = task['task_id']
         subtasks = self.get_subtasks(task_id)
         
+        # FIX: Handle NULL dependencies gracefully
+        dependencies = task.get('dependencies')
+        if dependencies is None:
+            dependencies = '[]'
+        
         return {
             "task_id": task_id,
             "session_id": task['session_id'],
@@ -203,6 +210,7 @@ class TaskManager:
             "status": task['status'],
             "progress": task['progress'],
             "priority": task['priority'],
+            "dependencies": json.loads(dependencies) if dependencies else [],
             "tags": json.loads(task['tags']) if task['tags'] else [],
             "subtasks": [self._build_tree(st) for st in subtasks]
         }
@@ -222,7 +230,10 @@ class TaskManager:
         if not task:
             return False
         
-        deps = json.loads(task['dependencies'] or "[]")
+        # FIX: Handle NULL dependencies gracefully
+        deps_str = task.get('dependencies')
+        deps = json.loads(deps_str) if deps_str else []
+        
         if depends_on not in deps:
             deps.append(depends_on)
         

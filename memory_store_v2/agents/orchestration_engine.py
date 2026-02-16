@@ -64,6 +64,9 @@ class OrchestrationEngine:
         self.task_status: Dict[str, TaskStatus] = {}
         self.task_results: Dict[str, Any] = {}
         
+        # FIX: Event-based task completion tracking
+        self._task_events: Dict[str, asyncio.Event] = {}
+        
         # Event system
         self.event_handlers: Dict[WorkflowEvent, List[Callable]] = {}
         self.progress_callbacks: Dict[str, List[Callable]] = {}
@@ -257,6 +260,12 @@ class OrchestrationEngine:
         # Get all tasks and their dependencies
         all_tasks = self._flatten_tasks(task_tree)
         
+        # Initialize task events for signaling
+        for task in all_tasks:
+            task_id = task['task_id']
+            if task_id not in self._task_events:
+                self._task_events[task_id] = asyncio.Event()
+        
         # Build dependency map
         dependency_map = self._build_dependency_map(all_tasks)
         
@@ -271,7 +280,7 @@ class OrchestrationEngine:
         async def execute_task(task_id: str) -> Any:
             """Execute a single task with its dependencies."""
             async with semaphore:
-                # Wait for dependencies
+                # Wait for dependencies using events instead of polling
                 deps = dependency_map.get(task_id, [])
                 for dep in deps:
                     if dep not in completed:
@@ -296,6 +305,10 @@ class OrchestrationEngine:
                         self.task_results[task_id] = result
                         completed.add(task_id)
                     
+                    # FIX: Signal task completion
+                    if task_id in self._task_events:
+                        self._task_events[task_id].set()
+                    
                     await self._emit_event(WorkflowEvent.TASK_COMPLETED, {
                         'task_id': task_id,
                         'result': result
@@ -314,6 +327,10 @@ class OrchestrationEngine:
                         self.task_results[task_id] = {'error': str(e)}
                         failed.add(task_id)
                     
+                    # FIX: Signal task failure
+                    if task_id in self._task_events:
+                        self._task_events[task_id].set()
+                    
                     await self._emit_event(WorkflowEvent.TASK_FAILED, {
                         'task_id': task_id,
                         'error': str(e)
@@ -322,13 +339,18 @@ class OrchestrationEngine:
                     raise
         
         async def wait_for_task(task_id: str):
-            """Wait for a task to complete."""
+            """Wait for a task to complete using events (no polling)."""
             max_wait = 300  # 5 minutes timeout
-            start = time.time()
-            while task_id not in completed and task_id not in failed:
-                if time.time() - start > max_wait:
-                    raise TimeoutError(f"Task {task_id} did not complete in time")
-                await asyncio.sleep(0.1)
+            
+            if task_id not in self._task_events:
+                # Task event doesn't exist - might already be completed
+                return
+            
+            event = self._task_events[task_id]
+            try:
+                await asyncio.wait_for(event.wait(), timeout=max_wait)
+            except asyncio.TimeoutError:
+                raise TimeoutError(f"Task {task_id} did not complete in time")
             
             if task_id in failed:
                 raise RuntimeError(f"Dependency task {task_id} failed")
@@ -410,7 +432,9 @@ class OrchestrationEngine:
         for task in tasks:
             task_id = task['task_id']
             db_task = self.task_manager.get(task_id)
-            deps = json.loads(db_task.get('dependencies', '[]'))
+            # FIX: Handle NULL dependencies gracefully
+            deps_str = db_task.get('dependencies')
+            deps = json.loads(deps_str) if deps_str else []
             
             # Filter to only tasks in our workflow
             valid_deps = [d for d in deps if d in task_ids]
@@ -488,6 +512,10 @@ class OrchestrationEngine:
                 task.cancel()
                 self.task_status[task_id] = TaskStatus.CANCELLED
                 self.task_manager.update_progress(task_id, 0, 'cancelled')
+                
+                # Signal cancelled tasks
+                if task_id in self._task_events:
+                    self._task_events[task_id].set()
         
         await self._emit_event(WorkflowEvent.WORKFLOW_FAILED, {
             'workflow_id': workflow_id,
