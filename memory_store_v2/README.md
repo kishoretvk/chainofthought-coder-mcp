@@ -24,12 +24,17 @@ We've completely rebuilt the memory system with a **hybrid SQLite + JSON archite
    - Stage (moment-in-time)
    - Diff comparison and selective restoration
 
-4. **Consolidated MCP Tools (5 instead of 15+)**
-   - session_manager
-   - task_manager
-   - memory_ops
-   - checkpoint_ops
-   - system_stats
+4. **Task Decomposition**
+   - Automatic subtask generation
+   - Template-based breakdown
+   - Dependency inference
+
+5. **Design Planning**
+   - High-Level Design (HLD) generation
+   - Low-Level Design (LLD) generation
+   - Automatic storage in task metadata
+
+6. **Consolidated MCP Tools (11 tools)**
 
 ## 🚀 Quick Start
 
@@ -133,9 +138,11 @@ memory_store_v2/
 - **JSON**: Complex data structures without schema constraints
 - **Together**: Best of both worlds
 
-## 🛠️ MCP Tools
+## 🛠️ MCP Tools (11 Tools)
 
 ### 1. session_manager
+Manage thinking sessions (create, list, switch, close, archive)
+
 ```json
 {
   "action": "create",
@@ -145,6 +152,8 @@ memory_store_v2/
 ```
 
 ### 2. task_manager
+Manage tasks and sub-tasks (create, update, get_tree, add_dependency)
+
 ```json
 {
   "action": "create_main",
@@ -154,7 +163,81 @@ memory_store_v2/
 }
 ```
 
-### 3. memory_ops
+### 3. workflow_manager
+Manage task workflows with parallel execution and dependency tracking
+
+```json
+{
+  "action": "create",
+  "session_id": "sess_abc123",
+  "name": "Build API Workflow"
+}
+```
+
+### 4. dependency_analyzer
+Analyze and visualize task dependencies, detect cycles, get execution order
+
+```json
+{
+  "action": "analyze",
+  "session_id": "sess_abc123",
+  "root_task_id": "task_abc123"
+}
+```
+
+### 5. parallel_executor
+Schedule and execute tasks in parallel with dependency awareness
+
+```json
+{
+  "action": "schedule",
+  "session_id": "sess_abc123",
+  "root_task_id": "task_abc123",
+  "max_parallel": 4
+}
+```
+
+### 6. progress_tracker
+Track task progress with history and predictions
+
+```json
+{
+  "action": "get",
+  "task_id": "task_abc123"
+}
+```
+
+### 7. task_decomposer
+Decompose complex tasks into subtasks with intelligent analysis
+
+```json
+{
+  "action": "decompose",
+  "session_id": "sess_abc123",
+  "task_id": "task_abc123",
+  "auto_dependencies": true
+}
+```
+
+### 8. design_planner ⭐ NEW
+Generate HLD and LLD designs for tasks
+
+```json
+{
+  "action": "generate",
+  "session_id": "sess_abc123",
+  "task_id": "task_abc123"
+}
+```
+
+Actions:
+- `create_hld` - Generate High-Level Design
+- `create_lld` - Generate Low-Level Design
+- `generate` - Generate both HLD and LLD
+
+### 9. memory_ops
+Store and retrieve memory (long-term and short-term)
+
 ```json
 {
   "action": "store_long",
@@ -165,7 +248,9 @@ memory_store_v2/
 }
 ```
 
-### 4. checkpoint_ops
+### 10. checkpoint_ops
+Create and manage checkpoints (overall, subtask, stage)
+
 ```json
 {
   "action": "create",
@@ -175,11 +260,11 @@ memory_store_v2/
 }
 ```
 
-### 5. system_stats
+### 11. system_stats
+Get system statistics and metrics
+
 ```json
-{
-  "action": "get_stats"
-}
+{}
 ```
 
 ## 📦 Cline Marketplace Publication
@@ -203,6 +288,7 @@ See [PUBLICATION_GUIDE.md](PUBLICATION_GUIDE.md) for complete step-by-step instr
 - [x] Changelog documented
 - [x] Requirements updated
 - [x] Setup guide complete
+- [x] Design planner tool added
 - [ ] Security audit (pending)
 - [ ] Compatibility validation (pending)
 - [ ] Package creation (pending)
@@ -222,13 +308,20 @@ See [PUBLICATION_GUIDE.md](PUBLICATION_GUIDE.md) for complete step-by-step instr
 - Update progress frequently
 - Track dependencies
 
-### 3. Memory Strategy
+### 3. Design Planning Workflow
+1. Create session
+2. Create main task with description
+3. Generate HLD/LLD with design_planner
+4. Decompose into subtasks
+5. Execute workflow
+
+### 4. Memory Strategy
 - **Long-term**: Patterns, insights, best practices
 - **Short-term**: Current context, recent actions
 - Use tags for searchability
 - Confidence scores for quality
 
-### 4. Checkpoint Strategy
+### 5. Checkpoint Strategy
 - Create before major decisions
 - Use tags for milestones
 - Clean up old checkpoints
@@ -239,14 +332,20 @@ See [PUBLICATION_GUIDE.md](PUBLICATION_GUIDE.md) for complete step-by-step instr
 - **[PUBLICATION_GUIDE.md](PUBLICATION_GUIDE.md)** - Cline marketplace publication guide
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
 - **[SETUP_COMPLETE.md](SETUP_COMPLETE.md)** - Setup completion checklist
-- **[memory_store_v2/README.md](memory_store_v2/README.md)** - Detailed architecture and API
+- **[LOCAL_DEV_GUIDE.md](LOCAL_DEV_GUIDE.md)** - Local development guide
 
 ## 🚨 Troubleshooting
 
 ### Issue: "Database is locked"
 ```python
-# Always close after operations
-memory.close()
+# Fixed in V2 - uses WAL mode
+# No action needed!
+```
+
+### Issue: "No subtasks created"
+```python
+# Fixed in V2 - threshold removed
+# Decomposition now always works!
 ```
 
 ### Issue: "Checkpoint not found"
@@ -281,6 +380,9 @@ MIT License - feel free to use in your projects.
 - ✅ **Automatic progress tracking**
 - ✅ **Dual-tier memory system**
 - ✅ **Multi-level checkpoints**
+- ✅ **Task decomposition**
+- ✅ **Design planning (HLD/LLD)**
+- ✅ **11 MCP tools**
 - ✅ **Production-ready reliability**
 - ✅ **100% test coverage**
 

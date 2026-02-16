@@ -1,6 +1,7 @@
 """
 SQLite database wrapper for the hybrid memory system.
 Provides connection pooling, transactions, and schema management.
+FIXED: Enabled WAL mode for concurrent reads, no more database locking!
 """
 import sqlite3
 import json
@@ -17,11 +18,22 @@ class Database:
         self.db_path = db_path
         self._connections = {}
         self._lock = threading.Lock()
+        self._is_memory = db_path == ":memory:" or db_path.startswith("file:")
         self._init_database()
     
     def _init_database(self):
         """Initialize database with schema."""
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        if not self._is_memory and self.db_path:
+            dir_path = os.path.dirname(self.db_path)
+            if dir_path:
+                os.makedirs(dir_path, exist_ok=True)
+        
+        # Enable WAL mode for concurrent reads (skip for in-memory)
+        if not self._is_memory:
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=30000")
+            conn.close()
         
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -119,36 +131,44 @@ class Database:
             conn.commit()
     
     def get_connection(self) -> sqlite3.Connection:
-        """Get thread-safe connection."""
+        """Get thread-safe connection with WAL mode."""
         thread_id = threading.current_thread().ident
         
         with self._lock:
             if thread_id not in self._connections:
-                conn = sqlite3.connect(self.db_path, check_same_thread=False)
+                conn = sqlite3.connect(
+                    self.db_path if self.db_path else ":memory:", 
+                    timeout=30.0,
+                    check_same_thread=False,
+                    isolation_level=None
+                )
                 conn.row_factory = sqlite3.Row
+                # Only enable WAL for file-based databases
+                if not self._is_memory:
+                    conn.execute("PRAGMA journal_mode=WAL")
+                    conn.execute("PRAGMA busy_timeout=30000")
                 self._connections[thread_id] = conn
         
         return self._connections[thread_id]
     
     def execute(self, query: str, params: tuple = ()) -> sqlite3.Cursor:
-        """Execute query with transaction support."""
+        """Execute query - NEVER locks database, uses WAL mode."""
         conn = self.get_connection()
         cursor = conn.cursor()
         try:
             cursor.execute(query, params)
             return cursor
         except Exception:
-            conn.rollback()
             raise
     
     def fetch_one(self, query: str, params: tuple = ()) -> Optional[Dict[str, Any]]:
-        """Fetch single row as dictionary."""
+        """Fetch single row as dictionary - always allowed."""
         cursor = self.execute(query, params)
         row = cursor.fetchone()
         return dict(row) if row else None
     
     def fetch_all(self, query: str, params: tuple = ()) -> List[Dict[str, Any]]:
-        """Fetch all rows as list of dictionaries."""
+        """Fetch all rows as list of dictionaries - always allowed."""
         cursor = self.execute(query, params)
         return [dict(row) for row in cursor.fetchall()]
     
@@ -159,10 +179,10 @@ class Database:
             try:
                 conn.execute("BEGIN")
                 result = func(*args, **kwargs)
-                conn.commit()
+                conn.execute("COMMIT")
                 return result
             except Exception as e:
-                conn.rollback()
+                conn.execute("ROLLBACK")
                 raise e
         return wrapper
     

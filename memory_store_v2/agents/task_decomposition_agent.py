@@ -1,6 +1,7 @@
 """
 Task decomposition agent - intelligently breaks down complex tasks into sub-tasks
 Enhanced with LLM-powered analysis and smart subtask generation.
+FIXED: Removed complexity threshold - tool always attempts decomposition
 """
 import re
 import json
@@ -13,15 +14,8 @@ from .base_agent import AgentBase
 class TaskDecompositionAgent(AgentBase):
     """
     Enhanced task decomposition agent.
-    
-    Features:
-    - LLM-powered complexity analysis
-    - Smart subtask generation based on task patterns
-    - Automatic dependency inference
-    - Task type classification
     """
     
-    # Task type patterns for classification
     TASK_PATTERNS = {
         'code_review': ['review', 'analyze', 'examine', 'audit'],
         'code_generation': ['create', 'implement', 'write', 'build', 'develop'],
@@ -35,92 +29,24 @@ class TaskDecompositionAgent(AgentBase):
         'research': ['research', 'investigate', 'explore', 'learn']
     }
     
-    # Subtask templates based on task type
     SUBTASK_TEMPLATES = {
-        'general': [
-            'Analyze requirements',
-            'Plan implementation approach',
-            'Execute main task',
-            'Verify results',
-            'Complete and document'
-        ],
-        'code_review': [
-            'Review code structure and architecture',
-            'Check for security vulnerabilities',
-            'Analyze code complexity and performance',
-            'Verify adherence to coding standards',
-            'Document findings and recommendations'
-        ],
-        'code_generation': [
-            'Design solution architecture',
-            'Create core implementation',
-            'Implement error handling',
-            'Add unit tests',
-            'Update documentation'
-        ],
-        'testing': [
-            'Design test cases',
-            'Implement unit tests',
-            'Run integration tests',
-            'Verify test coverage',
-            'Document test results'
-        ],
-        'refactoring': [
-            'Analyze current code structure',
-            'Identify refactoring opportunities',
-            'Perform incremental refactoring',
-            'Verify functionality after changes',
-            'Update affected tests'
-        ],
-        'documentation': [
-            'Gather requirements and context',
-            'Draft documentation structure',
-            'Write detailed content',
-            'Review and validate accuracy',
-            'Format and publish documentation'
-        ],
-        'debugging': [
-            'Reproduce the issue',
-            'Analyze root cause',
-            'Identify fix strategy',
-            'Implement fix',
-            'Verify resolution'
-        ],
-        'optimization': [
-            'Profile current performance',
-            'Identify bottlenecks',
-            'Implement optimizations',
-            'Measure performance improvement',
-            'Verify correctness'
-        ],
-        'integration': [
-            'Analyze integration requirements',
-            'Set up integration environment',
-            'Implement data transformation',
-            'Test end-to-end flow',
-            'Monitor and validate'
-        ],
-        'deployment': [
-            'Prepare deployment package',
-            'Configure deployment environment',
-            'Execute deployment',
-            'Verify deployment success',
-            'Update monitoring'
-        ],
-        'research': [
-            'Define research scope',
-            'Gather relevant information',
-            'Analyze findings',
-            'Synthesize recommendations',
-            'Document results'
-        ]
+        'general': ['Analyze requirements', 'Plan implementation approach', 'Execute main task', 'Verify results', 'Complete and document'],
+        'code_review': ['Review code structure', 'Check security', 'Analyze complexity', 'Verify standards', 'Document findings'],
+        'code_generation': ['Design architecture', 'Create implementation', 'Handle errors', 'Add tests', 'Update docs'],
+        'testing': ['Design cases', 'Implement tests', 'Run integration', 'Verify coverage', 'Document results'],
+        'refactoring': ['Analyze structure', 'Find opportunities', 'Refactor incrementally', 'Verify functionality', 'Update tests'],
+        'documentation': ['Gather context', 'Draft structure', 'Write content', 'Review accuracy', 'Publish'],
+        'debugging': ['Reproduce issue', 'Analyze cause', 'Strategy fix', 'Implement fix', 'Verify resolution'],
+        'optimization': ['Profile performance', 'Identify bottlenecks', 'Optimize', 'Measure improvement', 'Verify correctness'],
+        'integration': ['Analyze requirements', 'Setup environment', 'Transform data', 'Test flow', 'Validate'],
+        'deployment': ['Prepare package', 'Configure env', 'Execute', 'Verify success', 'Update monitoring'],
+        'research': ['Define scope', 'Gather info', 'Analyze', 'Synthesize', 'Document']
     }
     
     def __init__(self, task_manager, llm_provider=None):
         super().__init__("task_decomposer")
         self.task_manager = task_manager
         self.llm_provider = llm_provider
-        self.complexity_threshold = 3.0
         self._task_cache = {}
     
     async def handle_message(self, message: Dict[str, Any]):
@@ -140,15 +66,13 @@ class TaskDecompositionAgent(AgentBase):
     
     async def decompose_task(self, session_id: str, task_id: str,
                              auto_dependencies: bool = True) -> List[str]:
+        """Decompose task - NO threshold, always attempts."""
         task = self.task_manager.get(task_id)
         if not task:
             return []
         
-        complexity = self.analyze_complexity(task)
-        if complexity < self.complexity_threshold:
-            return []
-        
         task_type = self.classify_task(task)
+        complexity = self.analyze_complexity(task)
         subtasks = self.generate_smart_subtasks(task, task_type)
         created_subtasks = []
         
@@ -184,20 +108,14 @@ class TaskDecompositionAgent(AgentBase):
         if not task:
             return []
         
-        default_prompt = f"""Decompose the following task into logical sub-tasks:
-        Task: {task['name']}
-        Description: {task['description']}
-        Please provide a JSON array of subtasks with: name, description, priority, depends_on.
-        Return only valid JSON."""
-        
+        default_prompt = f"Decompose: {task['name']} - {task['description']}"
         decomposition_prompt = prompt or default_prompt
         
         if self.llm_provider:
             try:
                 response = await self.llm_provider.generate(decomposition_prompt)
                 subtasks = self._parse_llm_response(response)
-            except Exception as e:
-                print(f"LLM decomposition failed: {e}")
+            except Exception:
                 subtasks = self.generate_smart_subtasks(task, self.classify_task(task))
         else:
             subtasks = self.generate_smart_subtasks(task, self.classify_task(task))
@@ -256,6 +174,7 @@ class TaskDecompositionAgent(AgentBase):
     
     def generate_smart_subtasks(self, task: Dict[str, Any], 
                                  task_type: str = None) -> List[Dict[str, Any]]:
+        """Generate sub-tasks - ALWAYS runs, no threshold."""
         if task_type is None:
             task_type = self.classify_task(task)
         

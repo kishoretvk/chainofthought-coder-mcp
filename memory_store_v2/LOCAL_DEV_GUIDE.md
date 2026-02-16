@@ -80,11 +80,35 @@ python test_mcp_client.py
 
 ```json
 {
-  "name": "ChainOfThought Coder (Local)",
-  "command": "python",
-  "args": ["-m", "memory_store_v2.mcp_server_v2"],
-  "env": {},
-  "workingDirectory": "path/to/chainofthought-coder-mcp"
+  "mcpServers": {
+    "chainofthought-coder": {
+      "autoApprove": [
+        "session_manager",
+        "task_manager",
+        "memory_ops",
+        "checkpoint_ops",
+        "system_stats",
+        "workflow_manager",
+        "dependency_analyzer",
+        "parallel_executor",
+        "progress_tracker",
+        "task_decomposer",
+        "design_planner"
+      ],
+      "disabled": false,
+      "timeout": 60,
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "-m",
+        "memory_store_v2.mcp_server_v2"
+      ],
+      "cwd": "d:/git/chainofthought-coder-mcp/chainofthought-coder-mcp",
+      "env": {
+        "PYTHONPATH": "d:/git/chainofthought-coder-mcp/chainofthought-coder-mcp"
+      }
+    }
+  }
 }
 ```
 
@@ -133,6 +157,13 @@ for tool in tools:
 python -m memory_store_v2.test_mcp_components
 ```
 
+### Test Decomposition
+
+```bash
+# Run decomposition test
+python test_decomposition.py
+```
+
 ## Troubleshooting
 
 ### Issue: "Module not found"
@@ -159,6 +190,12 @@ rm -f memory_store_v2/*.db
 python -m memory_store_v2.test_mcp_components
 ```
 
+### Issue: "No subtasks created"
+
+This was fixed! The decomposition threshold was removed. If still occurring, restart MCP:
+1. Disable MCP in Cline
+2. Enable MCP in Cline
+
 ## Publishing to Cline (After Local Testing)
 
 Once local testing passes:
@@ -176,7 +213,7 @@ export CLINE_API_KEY="your_key_here"
 cline marketplace publish --name "ChainOfThought Coder V2"
 ```
 
-## Available MCP Tools
+## Available MCP Tools (11 Tools)
 
 | Tool | Description |
 |------|-------------|
@@ -187,9 +224,27 @@ cline marketplace publish --name "ChainOfThought Coder V2"
 | `parallel_executor` | Run tasks in parallel |
 | `progress_tracker` | Track and predict progress |
 | `task_decomposer` | Decompose complex tasks |
+| `design_planner` ⭐ NEW | Generate HLD/LLD designs |
 | `memory_ops` | Store/retrieve long & short-term memory |
 | `checkpoint_ops` | Create/restore checkpoints |
 | `system_stats` | Get system statistics |
+
+## Design Planner Usage
+
+The new `design_planner` tool generates High-Level and Low-Level designs:
+
+```json
+{
+  "action": "generate",
+  "session_id": "sess_abc123",
+  "task_id": "task_abc123"
+}
+```
+
+Actions:
+- `create_hld` - Generate High-Level Design
+- `create_lld` - Generate Low-Level Design
+- `generate` - Generate both HLD and LLD
 
 ---
 

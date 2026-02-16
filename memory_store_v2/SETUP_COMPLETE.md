@@ -6,9 +6,10 @@
 
 ### 1. **Cline Marketplace Manifest** ✅
 - File: `memory_store_v2/mcp-manifest.json`
-- Version: 2.4.0
+- Version: 2.5.0
 - Category: Developer Tools
 - All required fields populated
+- **11 MCP Tools** configured
 
 ### 2. **Changelog** ✅
 - File: `memory_store_v2/CHANGELOG.md`
@@ -24,6 +25,55 @@
 - File: `memory_store_v2/requirements.txt`
 - Production-ready dependencies
 - Optional enhancements documented
+
+### 5. **Design Planner Tool** ⭐ NEW
+- File: `memory_store_v2/agents/design_planner_agent.py`
+- Generates HLD/LLD for tasks
+- Integrated into MCP server
+
+## MCP Configuration
+
+### Add to Cline Settings
+
+```json
+{
+  "mcpServers": {
+    "chainofthought-coder": {
+      "autoApprove": [
+        "session_manager",
+        "task_manager",
+        "memory_ops",
+        "checkpoint_ops",
+        "system_stats",
+        "workflow_manager",
+        "dependency_analyzer",
+        "parallel_executor",
+        "progress_tracker",
+        "task_decomposer",
+        "design_planner"
+      ],
+      "disabled": false,
+      "timeout": 60,
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "-m",
+        "memory_store_v2.mcp_server_v2"
+      ],
+      "cwd": "d:/git/chainofthought-coder-mcp/chainofthought-coder-mcp",
+      "env": {
+        "PYTHONPATH": "d:/git/chainofthought-coder-mcp/chainofthought-coder-mcp"
+      }
+    }
+  }
+}
+```
+
+### Restart MCP in Cline
+
+1. Go to **MCP Servers** panel
+2. Disable **chainofthought-coder**
+3. Enable **chainofthought-coder** again
 
 ## Quick Start - Publication Checklist
 
@@ -59,7 +109,7 @@
    mkdir -p release
    
    # Package everything
-   zip -r release/chainofthought-coder-v2.4.0.zip \
+   zip -r release/chainofthought-coder-v2.5.0.zip \
      memory_store_v2/ \
      tests_v2/ \
      mcp-manifest.json \
@@ -78,9 +128,9 @@ export CLINE_API_KEY="cline_api_xxxxxxxxxxxxxxxx"
 # Publish
 cline marketplace publish \
   --name "ChainOfThought Coder V2" \
-  --package release/chainofthought-coder-v2.4.0.zip \
+  --package release/chainofthought-coder-v2.5.0.zip \
   --category "developer-tools" \
-  --description "Enhanced memory system for step-by-step problem solving with hierarchical task management and dual-tier memory" \
+  --description "Enhanced memory system for step-by-step problem solving with hierarchical task management, design planning, and dual-tier memory" \
   --api-key $CLINE_API_KEY
 ```
 
@@ -101,10 +151,10 @@ cline marketplace status --name "ChainOfThought Coder V2"
 ### 1. Update Repository
 ```bash
 # Create GitHub release
-gh release create v2.4.0 \
-  --title "ChainOfThought Coder V2.4.0 - Cline Marketplace Release" \
+gh release create v2.5.0 \
+  --title "ChainOfThought Coder V2.5.0 - Design Planner Release" \
   --notes-file CHANGELOG.md \
-  --attach release/chainofthought-coder-v2.4.0.zip
+  --attach release/chainofthought-coder-v2.5.0.zip
 ```
 
 ### 2. Marketing
@@ -120,7 +170,7 @@ gh release create v2.4.0 \
 ## File Structure for Publication
 
 ```
-chainofthought-coder-v2.4.0.zip
+chainofthought-coder-v2.5.0.zip
 ├── memory_store_v2/
 │   ├── __init__.py
 │   ├── mcp_server_v2.py
@@ -133,6 +183,14 @@ chainofthought-coder-v2.4.0.zip
 │   ├── core/
 │   │   ├── database.py
 │   │   └── file_store.py
+│   ├── agents/
+│   │   ├── base_agent.py
+│   │   ├── task_decomposition_agent.py
+│   │   ├── dependency_mapper_agent.py
+│   │   ├── parallel_execution_agent.py
+│   │   ├── integration_agent.py
+│   │   ├── orchestration_engine.py
+│   │   └── design_planner_agent.py  ⭐ NEW
 │   └── managers/
 │       ├── session_manager.py
 │       ├── task_manager.py
@@ -151,6 +209,13 @@ chainofthought-coder-v2.4.0.zip
 ✅ **Documentation**: Complete and accurate  
 ✅ **Package**: Size < 50MB  
 ✅ **API Key**: Valid and ready to use  
+✅ **Design Planner**: Integrated and tested  
+
+## Bug Fixes in This Release
+
+1. **Database Locking** - Fixed with WAL mode
+2. **Decomposition** - Threshold removed, always creates subtasks
+3. **Design Planner** - New tool for HLD/LLD generation
 
 ## Next Steps
 

@@ -11,10 +11,12 @@ from mcp.types import TextContent, Tool
 
 from memory_store_v2 import MemorySystemV2
 from memory_store_v2.agents.orchestration_engine import OrchestrationEngine
+from memory_store_v2.agents.design_planner_agent import DesignPlannerAgent
 
 # Global instance
 memory = MemorySystemV2()
 orchestration = OrchestrationEngine(memory.tasks, max_parallel=4)
+design_planner = DesignPlannerAgent(memory.tasks)
 app = Server("chainofthought-coder-v2")
 
 
@@ -133,6 +135,19 @@ async def list_tools():
                     "auto_dependencies": {"type": "boolean"}
                 },
                 "required": ["action"]
+            }
+        ),
+        Tool(
+            name="design_planner",
+            description="Generate HLD and LLD designs for tasks",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["create_hld", "create_lld", "generate"]},
+                    "session_id": {"type": "string"},
+                    "task_id": {"type": "string"}
+                },
+                "required": ["action", "session_id", "task_id"]
             }
         ),
         Tool(
@@ -413,6 +428,24 @@ async def call_tool(name: str, arguments: Dict[str, Any]):
             elif action == "get_templates":
                 templates = orchestration.decomposition_agent.SUBTASK_TEMPLATES
                 return [TextContent(type="text", text=json.dumps({"templates": templates}))]
+        
+        # ==================== Design Planner ====================
+        elif name == "design_planner":
+            action = arguments["action"]
+            session_id = arguments["session_id"]
+            task_id = arguments["task_id"]
+            
+            if action == "create_hld":
+                result = await design_planner.create_hld(session_id, task_id)
+                return [TextContent(type="text", text=json.dumps(result))]
+            
+            elif action == "create_lld":
+                result = await design_planner.create_lld(session_id, task_id)
+                return [TextContent(type="text", text=json.dumps(result))]
+            
+            elif action == "generate":
+                result = await design_planner.generate_design(session_id, task_id)
+                return [TextContent(type="text", text=json.dumps(result))]
         
         # ==================== Memory Operations ====================
         elif name == "memory_ops":
