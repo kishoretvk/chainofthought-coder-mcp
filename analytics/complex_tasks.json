@@ -1,1 +1,16 @@
-[]
+[
+  {
+    "task_id": "task_f7dc33e8",
+    "name": "Build Calculator App",
+    "desc_length": 81,
+    "priority": 0,
+    "status": "pending"
+  },
+  {
+    "task_id": "subtask_b2524359",
+    "name": "Create implementation (Build Calculator App)",
+    "desc_length": 51,
+    "priority": 4,
+    "status": "pending"
+  }
+]

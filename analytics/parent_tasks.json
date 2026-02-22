@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "task_id": "task_f7dc33e8",
+    "name": "Build Calculator App",
+    "status": "pending",
+    "progress": 0.0,
+    "subtask_count": 5
+  }
+]

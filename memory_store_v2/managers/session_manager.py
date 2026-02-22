@@ -14,13 +14,14 @@ class SessionManager:
     def __init__(self, db: Database):
         self.db = db
     
-    def create(self, name: str, metadata: Dict[str, Any] = None) -> str:
+    def create(self, name: str, metadata: Dict[str, Any] = None, mode: str = "plan") -> str:
         """
         Create a new session.
         
         Args:
             name: Session name
             metadata: Optional metadata dictionary
+            mode: Session mode - "plan" or "act"
             
         Returns:
             Session ID
@@ -30,37 +31,21 @@ class SessionManager:
         
         self.db.execute("""
             INSERT INTO sessions 
-            (session_id, name, status, created_at, updated_at, metadata)
-            VALUES (?, ?, 'active', ?, ?, ?)
-        """, (session_id, name, now, now, json.dumps(metadata or {})))
+            (session_id, name, status, mode, created_at, updated_at, metadata)
+            VALUES (?, ?, 'active', ?, ?, ?, ?)
+        """, (session_id, name, mode, now, now, json.dumps(metadata or {})))
         
         return session_id
     
     def get(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get session by ID.
-        
-        Args:
-            session_id: Session ID
-            
-        Returns:
-            Session dictionary or None
-        """
+        """Get session by ID."""
         return self.db.fetch_one(
             "SELECT * FROM sessions WHERE session_id = ?",
             (session_id,)
         )
     
     def list(self, status: str = None) -> List[Dict[str, Any]]:
-        """
-        List sessions with optional status filter.
-        
-        Args:
-            status: Filter by status (active, paused, archived)
-            
-        Returns:
-            List of session dictionaries
-        """
+        """List sessions with optional status filter."""
         if status:
             return self.db.fetch_all(
                 "SELECT * FROM sessions WHERE status = ? ORDER BY created_at DESC",
@@ -68,15 +53,8 @@ class SessionManager:
             )
         return self.db.fetch_all("SELECT * FROM sessions ORDER BY created_at DESC")
     
-    def update(self, session_id: str, status: str = None, metadata: Dict = None):
-        """
-        Update session.
-        
-        Args:
-            session_id: Session ID
-            status: New status
-            metadata: New metadata
-        """
+    def update(self, session_id: str, status: str = None, metadata: Dict = None, mode: str = None):
+        """Update session."""
         updates = []
         params = []
         
@@ -88,6 +66,10 @@ class SessionManager:
             updates.append("metadata = ?")
             params.append(json.dumps(metadata))
         
+        if mode:
+            updates.append("mode = ?")
+            params.append(mode)
+        
         if updates:
             updates.append("updated_at = ?")
             params.append(time.time())
@@ -98,42 +80,33 @@ class SessionManager:
                 params
             )
     
+    def set_mode(self, session_id: str, mode: str):
+        """Set session mode (plan or act)."""
+        self.update(session_id, mode=mode)
+    
+    def get_mode(self, session_id: str) -> str:
+        """Get session mode."""
+        session = self.get(session_id)
+        if session:
+            return session.get('mode', 'plan')
+        return 'plan'
+    
     def delete(self, session_id: str) -> bool:
-        """
-        Delete session and all related data.
-        
-        Args:
-            session_id: Session ID
-            
-        Returns:
-            True if successful
-        """
+        """Delete session and all related data."""
         try:
-            # Use transaction
             with self.db.get_connection() as conn:
                 conn.execute("BEGIN")
-                
-                # Delete in correct order to avoid FK issues
                 conn.execute("DELETE FROM checkpoints WHERE session_id = ?", (session_id,))
                 conn.execute("DELETE FROM short_term_memory WHERE session_id = ?", (session_id,))
                 conn.execute("DELETE FROM long_term_memory WHERE session_id = ?", (session_id,))
                 conn.execute("DELETE FROM tasks WHERE session_id = ?", (session_id,))
                 conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
-                
                 conn.commit()
             return True
         except Exception:
             return False
     
     def archive(self, session_id: str) -> bool:
-        """
-        Archive session (soft delete).
-        
-        Args:
-            session_id: Session ID
-            
-        Returns:
-            True if successful
-        """
+        """Archive session (soft delete)."""
         self.update(session_id, status="archived")
         return True

@@ -19,21 +19,10 @@ class TaskManager:
                         priority: int = 0, tags: List[str] = None) -> str:
         """
         Create main task (no parent).
-        
-        Args:
-            session_id: Session ID
-            name: Task name
-            description: Task description
-            priority: Priority level
-            tags: List of tags
-            
-        Returns:
-            Task ID
         """
         task_id = f"task_{uuid.uuid4().hex[:8]}"
         now = time.time()
         
-        # FIX: Added dependencies column with default '[]' instead of NULL
         self.db.execute("""
             INSERT INTO tasks 
             (task_id, session_id, parent_id, name, description, status, progress,
@@ -48,21 +37,10 @@ class TaskManager:
                       description: str = "", priority: int = 0) -> str:
         """
         Create sub-task under parent.
-        
-        Args:
-            session_id: Session ID
-            parent_id: Parent task ID
-            name: Sub-task name
-            description: Sub-task description
-            priority: Priority level
-            
-        Returns:
-            Task ID
         """
         task_id = f"subtask_{uuid.uuid4().hex[:8]}"
         now = time.time()
         
-        # FIX: Added dependencies column with default '[]' instead of NULL
         self.db.execute("""
             INSERT INTO tasks 
             (task_id, session_id, parent_id, name, description, status, progress,
@@ -75,15 +53,7 @@ class TaskManager:
     
     def update_progress(self, task_id: str, progress: float, status: str = None,
                        metadata: Dict = None):
-        """
-        Update task progress and status.
-        
-        Args:
-            task_id: Task ID
-            progress: Progress (0.0 to 1.0)
-            status: New status
-            metadata: Additional metadata
-        """
+        """Update task progress and status."""
         updates = ["progress = ?", "updated_at = ?"]
         params = [progress, time.time()]
         
@@ -116,7 +86,6 @@ class TaskManager:
         
         parent_id = result['parent_id']
         
-        # Calculate average progress
         stats = self.db.fetch_one("""
             SELECT 
                 AVG(progress) as avg_progress,
@@ -139,50 +108,24 @@ class TaskManager:
             """, (avg_progress, new_status, time.time(), parent_id))
     
     def get(self, task_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get task by ID.
-        
-        Args:
-            task_id: Task ID
-            
-        Returns:
-            Task dictionary or None
-        """
+        """Get task by ID."""
         return self.db.fetch_one("SELECT * FROM tasks WHERE task_id = ?", (task_id,))
     
     def get_subtasks(self, parent_id: str) -> List[Dict[str, Any]]:
-        """
-        Get all sub-tasks of a task.
-        
-        Args:
-            parent_id: Parent task ID
-            
-        Returns:
-            List of sub-task dictionaries
-        """
+        """Get all sub-tasks of a task."""
         return self.db.fetch_all(
             "SELECT * FROM tasks WHERE parent_id = ? ORDER BY created_at",
             (parent_id,)
         )
     
     def get_tree(self, session_id: str, root_task_id: str = None) -> Dict[str, Any]:
-        """
-        Get hierarchical task tree.
-        
-        Args:
-            session_id: Session ID
-            root_task_id: Optional root task ID
-            
-        Returns:
-            Task tree structure
-        """
+        """Get hierarchical task tree."""
         if root_task_id:
             root = self.get(root_task_id)
             if not root:
                 return None
             return self._build_tree(root)
         else:
-            # Get all main tasks
             main_tasks = self.db.fetch_all(
                 "SELECT * FROM tasks WHERE session_id = ? AND parent_id IS NULL ORDER BY created_at",
                 (session_id,)
@@ -197,7 +140,6 @@ class TaskManager:
         task_id = task['task_id']
         subtasks = self.get_subtasks(task_id)
         
-        # FIX: Handle NULL dependencies gracefully
         dependencies = task.get('dependencies')
         if dependencies is None:
             dependencies = '[]'
@@ -212,25 +154,19 @@ class TaskManager:
             "priority": task['priority'],
             "dependencies": json.loads(dependencies) if dependencies else [],
             "tags": json.loads(task['tags']) if task['tags'] else [],
+            "is_planned": task.get('is_planned', 0),
+            "is_executed": task.get('is_executed', 0),
+            "plan_session_id": task.get('plan_session_id'),
+            "act_session_id": task.get('act_session_id'),
             "subtasks": [self._build_tree(st) for st in subtasks]
         }
     
     def add_dependency(self, task_id: str, depends_on: str) -> bool:
-        """
-        Add dependency between tasks.
-        
-        Args:
-            task_id: Task ID
-            depends_on: Task ID that must complete first
-            
-        Returns:
-            True if successful
-        """
+        """Add dependency between tasks."""
         task = self.get(task_id)
         if not task:
             return False
         
-        # FIX: Handle NULL dependencies gracefully
         deps_str = task.get('dependencies')
         deps = json.loads(deps_str) if deps_str else []
         
@@ -244,17 +180,102 @@ class TaskManager:
         return True
     
     def list_by_status(self, session_id: str, status: str) -> List[Dict[str, Any]]:
-        """
-        Get all tasks with specific status.
-        
-        Args:
-            session_id: Session ID
-            status: Task status
-            
-        Returns:
-            List of task dictionaries
-        """
+        """Get all tasks with specific status."""
         return self.db.fetch_all(
             "SELECT * FROM tasks WHERE session_id = ? AND status = ?",
             (session_id, status)
         )
+    
+    # ==================== Plan/Act Tracking ====================
+    
+    def mark_as_planned(self, task_id: str, plan_session_id: str):
+        """Mark task as planned in a specific session."""
+        self.db.execute("""
+            UPDATE tasks 
+            SET is_planned = 1, plan_session_id = ?, updated_at = ?
+            WHERE task_id = ?
+        """, (plan_session_id, time.time(), task_id))
+        
+        # Also mark all subtasks
+        self._mark_subtasks_as_planned(task_id, plan_session_id)
+    
+    def _mark_subtasks_as_planned(self, parent_id: str, plan_session_id: str):
+        """Mark all subtasks as planned."""
+        subtasks = self.get_subtasks(parent_id)
+        for subtask in subtasks:
+            self.db.execute("""
+                UPDATE tasks 
+                SET is_planned = 1, plan_session_id = ?, updated_at = ?
+                WHERE task_id = ?
+            """, (plan_session_id, time.time(), subtask['task_id']))
+            self._mark_subtasks_as_planned(subtask['task_id'], plan_session_id)
+    
+    def mark_as_executed(self, task_id: str, act_session_id: str):
+        """Mark task as executed in a specific session."""
+        self.db.execute("""
+            UPDATE tasks 
+            SET is_executed = 1, act_session_id = ?, updated_at = ?
+            WHERE task_id = ?
+        """, (act_session_id, time.time(), task_id))
+        
+        # Also mark all subtasks
+        self._mark_subtasks_as_executed(task_id, act_session_id)
+    
+    def _mark_subtasks_as_executed(self, parent_id: str, act_session_id: str):
+        """Mark all subtasks as executed."""
+        subtasks = self.get_subtasks(parent_id)
+        for subtask in subtasks:
+            self.db.execute("""
+                UPDATE tasks 
+                SET is_executed = 1, act_session_id = ?, updated_at = ?
+                WHERE task_id = ?
+            """, (act_session_id, time.time(), subtask['task_id']))
+            self._mark_subtasks_as_executed(subtask['task_id'], act_session_id)
+    
+    def get_planned_tasks(self, plan_session_id: str = None) -> List[Dict[str, Any]]:
+        """Get all planned tasks."""
+        if plan_session_id:
+            return self.db.fetch_all(
+                "SELECT * FROM tasks WHERE is_planned = 1 AND plan_session_id = ?",
+                (plan_session_id,)
+            )
+        return self.db.fetch_all("SELECT * FROM tasks WHERE is_planned = 1")
+    
+    def get_executed_tasks(self, act_session_id: str = None) -> List[Dict[str, Any]]:
+        """Get all executed tasks."""
+        if act_session_id:
+            return self.db.fetch_all(
+                "SELECT * FROM tasks WHERE is_executed = 1 AND act_session_id = ?",
+                (act_session_id,)
+            )
+        return self.db.fetch_all("SELECT * FROM tasks WHERE is_executed = 1")
+    
+    def get_pending_tasks(self) -> List[Dict[str, Any]]:
+        """Get tasks that are planned but not executed."""
+        return self.db.fetch_all("""
+            SELECT * FROM tasks 
+            WHERE is_planned = 1 AND is_executed = 0
+            ORDER BY created_at
+        """)
+    
+    def get_plan_act_summary(self, session_id: str = None) -> Dict[str, Any]:
+        """Get summary of planned vs executed tasks."""
+        if session_id:
+            planned = len(self.db.fetch_all(
+                "SELECT * FROM tasks WHERE plan_session_id = ?", (session_id,)
+            ))
+            executed = len(self.db.fetch_all(
+                "SELECT * FROM tasks WHERE act_session_id = ?", (session_id,)
+            ))
+        else:
+            planned = len(self.db.fetch_all("SELECT * FROM tasks WHERE is_planned = 1"))
+            executed = len(self.db.fetch_all("SELECT * FROM tasks WHERE is_executed = 1"))
+        
+        pending = len(self.db.fetch_all("SELECT * FROM tasks WHERE is_planned = 1 AND is_executed = 0"))
+        
+        return {
+            "planned": planned,
+            "executed": executed,
+            "pending": pending,
+            "total": planned + executed
+        }

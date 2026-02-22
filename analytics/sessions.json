@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "session_id": "sess_774fc174",
+    "name": "Test",
+    "status": "active",
+    "created_at": 1771273751.097183,
+    "updated_at": 1771273751.097183,
+    "metadata": "{}"
+  }
+]
