@@ -1,32 +1,35 @@
 # Core dependencies for ChainOfThought Coder V2
 # Production-ready requirements
 
-# MCP SDK - Use specific version for compatibility
+# MCP SDK - Required for MCP server functionality
 mcp>=1.0.0,<2.0.0
 
-# Database
-sqlite3>=3.35
+# Database - SQLite3 is part of Python standard library (no version needed)
+# sqlite3 is built into Python 3.8+
 
 # JSON processing
-python-json-logger>=2.0.0
+json-log-formatter>=0.5.0
+
+# Async support (if needed for older Python versions)
+# asyncio is built into Python 3.4+
 
 # Optional: For enhanced performance
-# msgpack>=1.0.0  # Uncomment for MessagePack support
-# zstandard>=0.18.0  # Uncomment for compression
+# msgpack>=1.0.0  # MessagePack serialization
+# zstandard>=0.18.0  # Compression
 
 # Optional: For cloud storage integration
-# boto3>=1.26.0  # Uncomment for AWS S3 backups
-# google-cloud-storage>=2.0.0  # Uncomment for Google Cloud Storage
+# boto3>=1.26.0  # AWS S3 backups
+# google-cloud-storage>=2.0.0  # Google Cloud Storage
 
 # Optional: For metrics and monitoring
-# prometheus-client>=0.16.0  # Uncomment for Prometheus metrics
-# structlog>=22.0.0  # Uncomment for structured logging
+# prometheus-client>=0.16.0  # Prometheus metrics
+# structlog>=22.0.0  # Structured logging
 
 # Optional: For encryption
-# cryptography>=39.0.0  # Uncomment for AES-256 encryption
+# cryptography>=39.0.0  # AES-256 encryption
 
 # Development dependencies (not required for production)
-# pytest>=7.0.0
-# pytest-asyncio>=0.21.0
-# black>=23.0.0
-# flake8>=6.0.0
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
